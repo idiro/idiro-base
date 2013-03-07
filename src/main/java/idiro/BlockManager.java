@@ -91,6 +91,46 @@ public class BlockManager {
 					} catch (Exception e) {
 						logger.error(e.getMessage());
 					}
+				}else if(jFile.isDirectory()){
+					classes.addAll(getClassesFromDirectory(jFile, "",packageName));
+				}
+			}
+		}
+		return classes;
+	}
+
+	private List<String> getClassesFromDirectory(final File dirName,
+			final String currentPackage,
+			final String packageName){
+		List<String> classes = new ArrayList<String>();
+		if(currentPackage.startsWith(packageName) ||
+				packageName.startsWith(currentPackage)){
+			File[] files = dirName.listFiles();
+			for(int i = 0; i < files.length; ++i){
+				if(files[i].isDirectory()){
+					if(currentPackage.isEmpty()){
+						classes.addAll(
+								getClassesFromDirectory(files[i],
+										files[i].getName(),
+										packageName)
+								);
+					}else{
+						classes.addAll(
+								getClassesFromDirectory(files[i],
+										currentPackage+"."+files[i].getName(),
+										packageName)
+								);
+					}
+
+				}else if(files[i].getName().endsWith(".class") &&
+						currentPackage.startsWith(packageName)){
+					String className = currentPackage+"."+
+							files[i].getName().substring(
+									0, 
+									files[i].getName().length() - 6
+									); 
+					classes.add(className);
+					logger.debug("add class not in jar: "+className);
 				}
 			}
 		}

@@ -27,14 +27,17 @@ public class ProjectID {
 	private static ProjectID instance = new ProjectID();
 
 	private ProjectID(){
-		InputStream is = getClass().getResourceAsStream( "/META-INF/application.properties" );
-		Properties prop = new Properties();
+		
 		try {
+			InputStream is = getClass().getResourceAsStream( "/META-INF/application.properties" );
+			Properties prop = new Properties();
 			prop.load(is);
 			name = prop.getProperty("artifactId");
 			version = prop.getProperty("version");
 		} catch (IOException e) {
 			System.out.println("IOException cannot load name and version: "+e.getMessage());
+		}catch (Exception e) {
+			System.out.println("No application.properties file found");
 		}
 	}
 

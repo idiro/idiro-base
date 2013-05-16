@@ -5,7 +5,9 @@ import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
 import org.apache.log4j.BasicConfigurator;
+import org.apache.log4j.FileAppender;
 import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
 import org.apache.log4j.PropertyConfigurator;
 
 /**
@@ -57,6 +59,15 @@ public class Log {
 			logger.info("path to the log4j file: "+path);
 		}else{
 			BasicConfigurator.configure();
+			try{
+				Logger.getRootLogger().addAppender(
+						new FileAppender(new PatternLayout(),
+								System.getProperty("user.home")+
+								"/tmp/"+ProjectID.get()+".log")
+						);
+			}catch(Exception e){
+				logger.error("Fail to write log in temporary folder");
+			}
 			logger = Logger.getLogger(Log.class);
 			logger.warn("Please initialise the log4j preference with a correct file path");
 		}

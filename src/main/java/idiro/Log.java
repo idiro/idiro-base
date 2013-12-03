@@ -1,6 +1,7 @@
 package idiro;
 
 import java.io.File;
+import java.net.URL;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
@@ -76,6 +77,24 @@ public class Log {
 
 
 	/**
+	 * Initialise log4j not with a property, but with a URL
+	 * 
+	 * @return true if a log4j is found and loaded correctly
+	 */
+	public static void init(URL log4j_prop){
+		if(logger != null){
+			return;
+		}
+		Log log = new Log();
+
+		// Set up a simple configuration that logs on the console.
+		PropertyConfigurator.configure(log4j_prop);
+		logger = Logger.getLogger(Log.class);
+		logger.debug("path to the log4j file: "+log4j_prop);
+	}
+
+
+	/**
 	 * Get the log4j properties path from the preferences tree
 	 * @return
 	 */
@@ -93,7 +112,7 @@ public class Log {
 	public void put(String value){
 		if(logger != null)
 			logger.debug("put value for "+prefNode.absolutePath()+" : "+key+": "+value);
-		
+
 		prefNode.put(key, value);
 		try {
 			prefNode.flush();

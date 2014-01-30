@@ -2,11 +2,16 @@ package idiro;
 
 import java.io.File;
 import java.net.URL;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.FileAppender;
+import org.apache.log4j.Level;
+import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
 import org.apache.log4j.PropertyConfigurator;
@@ -61,6 +66,7 @@ public class Log {
 		}else{
 			BasicConfigurator.configure();
 			try{
+				Logger.getRootLogger().setLevel(Level.INFO);
 				Logger.getRootLogger().addAppender(
 						new FileAppender(new PatternLayout(),
 								System.getProperty("user.home")+
@@ -92,6 +98,52 @@ public class Log {
 		logger = Logger.getLogger(Log.class);
 		logger.debug("path to the log4j file: "+log4j_prop);
 	}
+	
+
+
+public static void flushAllLogs()
+{
+    try
+    {
+        Set<FileAppender> flushedFileAppenders = new HashSet<FileAppender>();
+        Enumeration currentLoggers = LogManager.getLoggerRepository().getCurrentLoggers();
+        while(currentLoggers.hasMoreElements())
+        {
+            Object nextLogger = currentLoggers.nextElement();
+            if(nextLogger instanceof Logger)
+            {
+                Logger currentLogger = (Logger) nextLogger;
+                Enumeration allAppenders = currentLogger.getAllAppenders();
+                while(allAppenders.hasMoreElements())
+                {
+                    Object nextElement = allAppenders.nextElement();
+                    if(nextElement instanceof FileAppender)
+                    {
+                        FileAppender fileAppender = (FileAppender) nextElement;
+                        if(!flushedFileAppenders.contains(fileAppender) && !fileAppender.getImmediateFlush())
+                        {
+                            flushedFileAppenders.add(fileAppender);
+                            //log.info("Appender "+fileAppender.getName()+" is not doing immediateFlush ");
+                            fileAppender.setImmediateFlush(true);
+                            currentLogger.info("FLUSH");
+                            fileAppender.setImmediateFlush(false);
+                        }
+                        else
+                        {
+                            //log.info("fileAppender"+fileAppender.getName()+" is doing immediateFlush");
+                        }
+                    }
+                }
+            }
+        }
+    }
+    catch(RuntimeException e)
+    {
+        logger.error("Failed flushing logs",e);
+    }
+}
+
+
 
 
 	/**

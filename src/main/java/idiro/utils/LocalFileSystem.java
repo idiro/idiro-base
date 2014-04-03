@@ -7,6 +7,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.log4j.Logger;
 
@@ -125,6 +127,51 @@ public class LocalFileSystem {
 		}
 
 		return ok;
+	}
+
+	public static String relativize(File reference,String ptoRel){
+		
+		logger.info("relativize ");
+		
+		String pRef = reference.getAbsolutePath()+"/";
+		//String ptoRel = toRel.getAbsolutePath();
+
+		logger.info("relativize pRef " + pRef);
+		logger.info("relativize ptoRel " + ptoRel);
+		
+		List<Integer> pos = new ArrayList<Integer>();
+		for (int i = 0; i < pRef.length(); i++) {
+			if (pRef.charAt(i) == '/') {
+				pos.add(i);
+			}
+		}
+		
+		logger.info("relativize 1 ");
+		
+		int i = pos.size()-1;
+		boolean end = false;
+		while(i >=0 && !end){
+			String common = pRef.substring(0,pos.get(i));
+			
+			logger.info("relativize common " + common);
+			
+			if(ptoRel.startsWith(common+"/")){
+				end = true;
+			}else{
+				--i;
+			}
+		}
+		
+		String dot = "";
+		for (int j = 0; j < pos.size()-1-i; j++) {
+			dot = dot.concat("../");
+		}
+		
+		String ans = dot+ptoRel.substring(pos.get(i)+1);
+
+		logger.info("relativize " + ans);
+		
+		return ans;
 	}
 
 }

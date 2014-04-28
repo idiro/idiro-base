@@ -131,13 +131,10 @@ public class LocalFileSystem {
 
 	public static String relativize(File reference,String ptoRel){
 		
-		logger.info("relativize ");
 		
 		String pRef = reference.getAbsolutePath()+"/";
+		logger.debug("relativize "+ptoRel+" from "+pRef);
 		//String ptoRel = toRel.getAbsolutePath();
-
-		logger.info("relativize pRef " + pRef);
-		logger.info("relativize ptoRel " + ptoRel);
 		
 		List<Integer> pos = new ArrayList<Integer>();
 		for (int i = 0; i < pRef.length(); i++) {
@@ -146,14 +143,10 @@ public class LocalFileSystem {
 			}
 		}
 		
-		logger.info("relativize 1 ");
-		
 		int i = pos.size()-1;
 		boolean end = false;
 		while(i >=0 && !end){
 			String common = pRef.substring(0,pos.get(i));
-			
-			logger.info("relativize common " + common);
 			
 			if(ptoRel.startsWith(common+"/")){
 				end = true;
@@ -169,8 +162,6 @@ public class LocalFileSystem {
 		
 		String ans = dot+ptoRel.substring(pos.get(i)+1);
 
-		logger.info("relativize " + ans);
-		
 		return ans;
 	}
 

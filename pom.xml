@@ -10,7 +10,7 @@
     <groupId>idiro</groupId>
     <artifactId>idiro-base</artifactId>
     <packaging>jar</packaging>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.1</version>
     <name>Idiro Base</name>
     <description>Provide Basic Functionalities to any idiro java programme</description>
     <url>http://ns.local.net/dev/idiro-base</url>

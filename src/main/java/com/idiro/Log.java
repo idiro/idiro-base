@@ -81,7 +81,6 @@ public class Log {
 		return ok;
 	}
 
-
 	/**
 	 * Initialise log4j not with a property, but with a URL
 	 * 
@@ -91,57 +90,72 @@ public class Log {
 		if(logger != null){
 			return;
 		}
-		Log log = new Log();
-
 		// Set up a simple configuration that logs on the console.
 		PropertyConfigurator.configure(log4j_prop);
 		logger = Logger.getLogger(Log.class);
 		logger.debug("path to the log4j file: "+log4j_prop);
 	}
-	
 
 
-public static void flushAllLogs()
-{
-    try
-    {
-        Set<FileAppender> flushedFileAppenders = new HashSet<FileAppender>();
-        Enumeration currentLoggers = LogManager.getLoggerRepository().getCurrentLoggers();
-        while(currentLoggers.hasMoreElements())
-        {
-            Object nextLogger = currentLoggers.nextElement();
-            if(nextLogger instanceof Logger)
-            {
-                Logger currentLogger = (Logger) nextLogger;
-                Enumeration allAppenders = currentLogger.getAllAppenders();
-                while(allAppenders.hasMoreElements())
-                {
-                    Object nextElement = allAppenders.nextElement();
-                    if(nextElement instanceof FileAppender)
-                    {
-                        FileAppender fileAppender = (FileAppender) nextElement;
-                        if(!flushedFileAppenders.contains(fileAppender) && !fileAppender.getImmediateFlush())
-                        {
-                            flushedFileAppenders.add(fileAppender);
-                            //log.info("Appender "+fileAppender.getName()+" is not doing immediateFlush ");
-                            fileAppender.setImmediateFlush(true);
-                            currentLogger.info("FLUSH");
-                            fileAppender.setImmediateFlush(false);
-                        }
-                        else
-                        {
-                            //log.info("fileAppender"+fileAppender.getName()+" is doing immediateFlush");
-                        }
-                    }
-                }
-            }
-        }
-    }
-    catch(RuntimeException e)
-    {
-        logger.error("Failed flushing logs",e);
-    }
-}
+
+	public static void flushAllLogs()
+	{
+		try
+		{
+			Set<FileAppender> flushedFileAppenders = new HashSet<FileAppender>();
+			Enumeration currentLoggers = LogManager.getLoggerRepository().getCurrentLoggers();
+			while(currentLoggers.hasMoreElements())
+			{
+				Object nextLogger = currentLoggers.nextElement();
+				if(nextLogger instanceof Logger)
+				{
+					Logger currentLogger = (Logger) nextLogger;
+					Enumeration allAppenders = currentLogger.getAllAppenders();
+					while(allAppenders.hasMoreElements())
+					{
+						Object nextElement = allAppenders.nextElement();
+						if(nextElement instanceof FileAppender)
+						{
+							FileAppender fileAppender = (FileAppender) nextElement;
+							if(!flushedFileAppenders.contains(fileAppender) && !fileAppender.getImmediateFlush())
+							{
+								flushedFileAppenders.add(fileAppender);
+								//log.info("Appender "+fileAppender.getName()+" is not doing immediateFlush ");
+								fileAppender.setImmediateFlush(true);
+								currentLogger.info("FLUSH");
+								fileAppender.setImmediateFlush(false);
+							}
+							else
+							{
+								//log.info("fileAppender"+fileAppender.getName()+" is doing immediateFlush");
+							}
+						}
+					}
+				}
+			}
+		}
+		catch(RuntimeException e)
+		{
+			logger.error("Failed flushing logs",e);
+		}
+	}
+
+
+	public static boolean isConfigured() {
+		Enumeration appenders = Logger.getRoot().getAllAppenders();
+		if (appenders.hasMoreElements()) {
+			return true;
+		}
+		else {
+			Enumeration loggers = LogManager.getCurrentLoggers() ;
+			while (loggers.hasMoreElements()) {
+				Logger c = (Logger) loggers.nextElement();
+				if (c.getAllAppenders().hasMoreElements())
+					return true;
+			}
+		}
+		return false;
+	}
 
 
 

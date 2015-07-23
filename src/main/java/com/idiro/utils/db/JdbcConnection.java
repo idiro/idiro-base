@@ -204,6 +204,22 @@ public class JdbcConnection {
 	}
 	
 	/**
+	 * Execute a query, but set the number max of row
+	 * @param arg0
+	 * @param maxRecord
+	 * @return
+	 * @throws SQLException
+	 * @see java.sql.Statement#executeQuery(java.lang.String)
+	 */
+	public ResultSet executeQuery(String arg0, int maxRecord) throws SQLException {
+		int curMaxRows = statement.getMaxRows();
+		statement.setMaxRows(maxRecord);
+		ResultSet ans = statement.executeQuery(showStmt(arg0));
+		statement.setMaxRows(curMaxRows);
+		return ans;
+	}
+	
+	/**
 	 * @param arg0
 	 * @return
 	 * @throws SQLException
@@ -252,6 +268,15 @@ public class JdbcConnection {
 		
 		logger.debug("Statement to launch, in '"+connectionDetails.getDburl()+"': \n"+stmt_toshow);
 		return stmt_str;
+	}
+	
+
+	/**
+	 * @throws SQLException
+	 * @see java.sql.Connection#commit()
+	 */
+	public void commit() throws SQLException {
+		connection.commit();
 	}
 
 	/**

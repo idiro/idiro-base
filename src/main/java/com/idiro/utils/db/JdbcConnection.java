@@ -35,6 +35,8 @@ public class JdbcConnection {
 	
 	private BasicStatement bs;
 	
+	private int maxDefaultRowNb = 100000;
+	
 	public JdbcConnection(JdbcDetails connectionDetails,BasicStatement bs) throws Exception{
 		this.connectionDetails = connectionDetails;
 		this.bs = bs;
@@ -74,8 +76,7 @@ public class JdbcConnection {
 		if (pattern != null && pattern.trim() != "") {
 			filter = true;
 		}
-		ResultSet rs = statement
-				.executeQuery(showStmt(bs.showAllTables()));
+		ResultSet rs = executeQuery(showStmt(bs.showAllTables()));
 		String name;
 		while (rs.next()) {
 		    name = rs.getString(1).trim();
@@ -190,7 +191,7 @@ public class JdbcConnection {
 	 * @see com.idiro.utils.db.BasicStatement#showFeaturesFrom()
 	 */
 	public ResultSet showFeaturesFrom(String tableName)throws SQLException {
-		return statement.executeQuery(showStmt(bs.showFeaturesFrom(tableName)));
+		return executeQuery(showStmt(bs.showFeaturesFrom(tableName)),maxDefaultRowNb);
 	}
 
 	/**
@@ -200,7 +201,7 @@ public class JdbcConnection {
 	 * @see java.sql.Statement#executeQuery(java.lang.String)
 	 */
 	public ResultSet executeQuery(String arg0) throws SQLException {
-		return statement.executeQuery(showStmt(arg0));
+		return executeQuery(showStmt(arg0),maxDefaultRowNb);
 	}
 	
 	/**
@@ -212,10 +213,8 @@ public class JdbcConnection {
 	 * @see java.sql.Statement#executeQuery(java.lang.String)
 	 */
 	public ResultSet executeQuery(String arg0, int maxRecord) throws SQLException {
-		int curMaxRows = statement.getMaxRows();
 		statement.setMaxRows(maxRecord);
 		ResultSet ans = statement.executeQuery(showStmt(arg0));
-		statement.setMaxRows(curMaxRows);
 		return ans;
 	}
 	
@@ -284,6 +283,20 @@ public class JdbcConnection {
 	 */
 	public BasicStatement getBs() {
 		return bs;
+	}
+
+	/**
+	 * @return the maxDefaultRowNb
+	 */
+	public int getMaxDefaultRowNb() {
+		return maxDefaultRowNb;
+	}
+
+	/**
+	 * @param maxDefaultRowNb the maxDefaultRowNb to set
+	 */
+	public void setMaxDefaultRowNb(int maxDefaultRowNb) {
+		this.maxDefaultRowNb = maxDefaultRowNb;
 	}
 	
 }

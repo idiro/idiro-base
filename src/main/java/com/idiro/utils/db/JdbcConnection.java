@@ -1,6 +1,9 @@
 package com.idiro.utils.db;
 
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.sql.Connection;
+import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -41,7 +44,28 @@ public class JdbcConnection {
 		this.connectionDetails = connectionDetails;
 		this.bs = bs;
 		try{
-		connection = (DriverManager.getConnection(
+			connection = (DriverManager.getConnection(
+					connectionDetails.getDburl(),
+					connectionDetails.getUsername(),
+					connectionDetails.getPassword()));
+		}catch(SQLException e){
+			logger.error("The database details are set, but the connection cannot be initialised");
+			logger.error("Details: <"+connectionDetails.getDburl()+"> <"+connectionDetails.getUsername()+"> <*>");
+			throw e;
+		}
+		setStatement(connection.createStatement());
+		
+	}
+	
+
+	public JdbcConnection(URL jarPath, String driverClassname, JdbcDetails connectionDetails,BasicStatement bs) throws Exception{
+		this.connectionDetails = connectionDetails;
+		this.bs = bs;
+		try{
+			URLClassLoader ucl = new URLClassLoader(new URL[] { jarPath });
+			Driver d = (Driver)Class.forName(driverClassname, true, ucl).newInstance();
+			DriverManager.registerDriver(new VirtualDriver(d));
+			connection = (DriverManager.getConnection(
 				connectionDetails.getDburl(),
 				connectionDetails.getUsername(),
 				connectionDetails.getPassword()));

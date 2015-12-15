@@ -79,17 +79,17 @@ public class ZipUtils {
 		byte[] buffer = new byte[1024];
 
 		try{
-
+			String parentInputFolder = inputFolder.getParent();
 			FileOutputStream fos = new FileOutputStream(zipFile);
 			ZipOutputStream zos = new ZipOutputStream(fos);
 
-			List<String> fileList = generateFileList(inputFolder.getAbsolutePath(), inputFolder);
+			List<String> fileList = generateFileList(parentInputFolder, inputFolder);
 			for(String file : fileList){
 				ZipEntry ze= new ZipEntry(file);
 				zos.putNextEntry(ze);
 
 				FileInputStream in = 
-						new FileInputStream(inputFolder.getAbsolutePath() + File.separator + file);
+						new FileInputStream(parentInputFolder + File.separator + file);
 
 				int len;
 				while ((len = in.read(buffer)) > 0) {

@@ -17,6 +17,7 @@
  *  support@redsqirl.com
  */
 
+package com.idiro.utils;
 
 import java.util.concurrent.TimeUnit;
 

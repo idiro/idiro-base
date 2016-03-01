@@ -25,7 +25,7 @@ import java.util.Map;
  * Basic statement syntax interface.
  * This interfaces contains the basic statement
  * syntax for the databases you want to use
- * For example hive and mysql has not exactly
+ * For example jdbc and mysql has not exactly
  * the same syntax and those even for very basic
  * queries. Some automate process are done but
  * these queries are needed

@@ -49,7 +49,7 @@ public class JdbcConnection {
 
 	private Logger logger = Logger.getLogger(getClass());
 	
-	private JdbcDetails connectionDetails;
+	protected JdbcDetails connectionDetails;
 	
 	private Connection connection;
 	
@@ -97,6 +97,24 @@ public class JdbcConnection {
 		
 	}
 	
+	public JdbcConnection(String driverClassname, JdbcDetails connectionDetails, BasicStatement bs) throws Exception {
+		this.connectionDetails = connectionDetails;
+		this.bs = bs;
+		try{
+			Class.forName(driverClassname);
+			connection = (DriverManager.getConnection(
+				connectionDetails.getDburl(),
+				connectionDetails.getUsername(),
+				connectionDetails.getPassword()));
+		}catch(SQLException e){
+			logger.error("The database details are set, but the connection cannot be initialised");
+			logger.error("Details: <"+connectionDetails.getDburl()+"> <"+connectionDetails.getUsername()+"> <*>");
+			throw e;
+		}
+		setStatement(connection.createStatement());
+	}
+
+
 	public void closeConnection() throws SQLException{
 		statement.close();
 		connection.close();

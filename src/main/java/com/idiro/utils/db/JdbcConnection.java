@@ -28,6 +28,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -47,17 +49,29 @@ import org.apache.log4j.Logger;
  */
 public class JdbcConnection {
 
+	protected class StatementObj{
+		protected Statement stat;
+		protected ResultSet rs;
+		protected long timestamp;
+		
+		protected StatementObj(Statement stat, ResultSet rs){
+			this.stat = stat;
+			this.rs = rs;
+			timestamp = System.currentTimeMillis();
+		}
+	}
+	private int maxTimeInMinuteBeforeCleaningStatement = 60;
+	
 	private Logger logger = Logger.getLogger(getClass());
 	
 	protected JdbcDetails connectionDetails;
 	
 	private Connection connection;
 	
-	private Statement statement;
-	
 	private BasicStatement bs;
 	
 	private int maxDefaultRowNb = 100000;
+	private List<StatementObj> statementCach = new LinkedList<StatementObj>();
 	
 	public JdbcConnection(JdbcDetails connectionDetails,BasicStatement bs) throws Exception{
 		this.connectionDetails = connectionDetails;
@@ -72,7 +86,6 @@ public class JdbcConnection {
 			logger.error("Details: <"+connectionDetails.getDburl()+"> <"+connectionDetails.getUsername()+"> <*>");
 			throw e;
 		}
-		setStatement(connection.createStatement());
 		
 	}
 	
@@ -93,8 +106,6 @@ public class JdbcConnection {
 			logger.error("Details: <"+connectionDetails.getDburl()+"> <"+connectionDetails.getUsername()+"> <*>");
 			throw e;
 		}
-		setStatement(connection.createStatement());
-		
 	}
 	
 	public JdbcConnection(String driverClassname, JdbcDetails connectionDetails, BasicStatement bs) throws Exception {
@@ -111,12 +122,11 @@ public class JdbcConnection {
 			logger.error("Details: <"+connectionDetails.getDburl()+"> <"+connectionDetails.getUsername()+"> <*>");
 			throw e;
 		}
-		setStatement(connection.createStatement());
 	}
 
 
 	public void closeConnection() throws SQLException{
-		statement.close();
+		removeAllStatement();
 		connection.close();
 	}
 
@@ -161,6 +171,7 @@ public class JdbcConnection {
 	 */
 	public final List<String> listFeaturesFrom(String tableName) throws SQLException{
 		List<String> features = new LinkedList<String>();
+		Statement statement = getNewStatement();
 		ResultSet rs = statement
 				.executeQuery(showStmt(bs.showFeaturesFrom(tableName)));
 		String name;
@@ -169,17 +180,58 @@ public class JdbcConnection {
 			features.add(name);
 		}
 		rs.close();
+		statement.close();
 		
 		return features;
 	}
-
-	/**
-	 * @param statement the statement to set
-	 */
-	public void setStatement(Statement statement) {
-		this.statement = statement;
+	
+	public Statement getNewStatement() throws SQLException{
+		return connection.createStatement();
 	}
 
+	public void cleanOldStatement() throws SQLException{
+		Iterator<StatementObj> itStat = statementCach.iterator();
+		while(itStat.hasNext()){
+			StatementObj cur = itStat.next();
+			Statement curSt = cur.stat;
+			ResultSet rs = cur.rs;
+			boolean toClose = false;
+			try{
+				toClose = rs == null || rs.isClosed();
+			}catch(Exception e){
+				//Remove the statement after 30 minutes
+				if(System.currentTimeMillis() - cur.timestamp > 1000*60*maxTimeInMinuteBeforeCleaningStatement){
+					toClose = true;
+				}
+			}
+			if(toClose){
+				curSt.close();
+				itStat.remove();
+			}
+		}
+	}
+	
+	public void addNewStatement(Statement stat, ResultSet rs) throws SQLException{
+		cleanOldStatement();
+		statementCach.add(new StatementObj(stat, rs));
+	}
+	
+	public void removeAllStatement(){
+		Iterator<StatementObj> itStat = statementCach.iterator();
+		while(itStat.hasNext()){
+			StatementObj cur = itStat.next();
+			Statement curSt = cur.stat;
+			ResultSet rs = cur.rs;
+			try{
+				rs.close();
+			}catch(Exception e){}
+			try{
+				curSt.close();
+			}catch(Exception e){}
+			itStat.remove();
+		}
+	}
+	
 	/**
 	 * Execution of the statement
 	 * @param tableName
@@ -191,7 +243,10 @@ public class JdbcConnection {
 	 */
 	public boolean createExternalTable(String tableName,
 			Map<String, String> features, String[] options) throws SQLException {
-		return statement.execute(showStmt(bs.createExternalTable(tableName, features, options)));
+		Statement statement = getNewStatement();
+		boolean ans = statement.execute(showStmt(bs.createExternalTable(tableName, features, options)));
+		statement.close();
+		return ans;
 	}
 
 	/**
@@ -205,7 +260,10 @@ public class JdbcConnection {
 	 */
 	public boolean createTable(String tableName,
 			Map<String, String> features, String[] options) throws SQLException {
-		return statement.execute(showStmt(bs.createTable(tableName, features, options)));
+		Statement statement = getNewStatement();
+		boolean ans = statement.execute(showStmt(bs.createTable(tableName, features, options)));
+		statement.close();
+		return ans;
 	}
 
 	/**
@@ -216,7 +274,10 @@ public class JdbcConnection {
 	 * @see com.idiro.utils.db.BasicStatement#deleteTable(java.lang.String)
 	 */
 	public boolean deleteTable(String tableName) throws SQLException {
-		return statement.execute(showStmt(bs.deleteTable(tableName)));
+		Statement statement = getNewStatement();
+		boolean ans = statement.execute(showStmt(bs.deleteTable(tableName)));
+		statement.close();
+		return ans;
 	}
 
 	/**
@@ -231,8 +292,11 @@ public class JdbcConnection {
 	 */
 	public boolean exportTableToFile(String tableNameFrom,
 			Map<String, String> features, String[] options) throws SQLException {
-		return statement.execute(showStmt(bs.exportTableToFile(tableNameFrom, features,
+		Statement statement = getNewStatement();
+		boolean ans = statement.execute(showStmt(bs.exportTableToFile(tableNameFrom, features,
 				options)));
+		statement.close();
+		return ans;
 	}
 
 	/**
@@ -242,7 +306,10 @@ public class JdbcConnection {
 	 * @see com.idiro.utils.db.BasicStatement#showAllTables()
 	 */
 	public ResultSet showAllTables() throws SQLException {
-		return statement.executeQuery(showStmt(bs.showAllTables()));
+		Statement statement = getNewStatement();
+		ResultSet rs = statement.executeQuery(showStmt(bs.showAllTables()));
+		addNewStatement(statement, rs);
+		return rs;
 	}
 
 	/**
@@ -252,7 +319,7 @@ public class JdbcConnection {
 	 * @see com.idiro.utils.db.BasicStatement#showFeaturesFrom()
 	 */
 	public ResultSet showFeaturesFrom(String tableName)throws SQLException {
-		return executeQuery(showStmt(bs.showFeaturesFrom(tableName)),maxDefaultRowNb);
+		return executeQuery(bs.showFeaturesFrom(tableName),maxDefaultRowNb);
 	}
 
 	/**
@@ -262,7 +329,7 @@ public class JdbcConnection {
 	 * @see java.sql.Statement#executeQuery(java.lang.String)
 	 */
 	public ResultSet executeQuery(String arg0) throws SQLException {
-		return executeQuery(showStmt(arg0),maxDefaultRowNb);
+		return executeQuery(arg0,maxDefaultRowNb);
 	}
 	
 	/**
@@ -274,8 +341,10 @@ public class JdbcConnection {
 	 * @see java.sql.Statement#executeQuery(java.lang.String)
 	 */
 	public ResultSet executeQuery(String arg0, int maxRecord) throws SQLException {
+		Statement statement = getNewStatement();
 		statement.setMaxRows(maxRecord);
 		ResultSet ans = statement.executeQuery(showStmt(arg0));
+		addNewStatement(statement, ans);
 		return ans;
 	}
 	
@@ -286,7 +355,10 @@ public class JdbcConnection {
 	 * @see java.sql.Statement#execute(java.lang.String)
 	 */
 	public boolean execute(String arg0) throws SQLException {
-		return statement.execute(showStmt(arg0));
+		Statement statement = getNewStatement();
+		boolean ans = statement.execute(showStmt(arg0));
+		statement.close();
+		return ans;
 	}
 	
 	/**
@@ -296,7 +368,10 @@ public class JdbcConnection {
 	 * @see java.sql.Statement#executeUpdate(java.lang.String)
 	 */
 	public int executeUpdate(String arg0) throws SQLException {
-		return statement.executeUpdate(showStmt(arg0));
+		Statement statement = getNewStatement();
+		int ans = statement.executeUpdate(showStmt(arg0));
+		statement.close();
+		return ans;
 	}
 	
 
@@ -358,6 +433,16 @@ public class JdbcConnection {
 	 */
 	public void setMaxDefaultRowNb(int maxDefaultRowNb) {
 		this.maxDefaultRowNb = maxDefaultRowNb;
+	}
+
+
+	public int getMaxTimeInMinuteBeforeCleaningStatement() {
+		return maxTimeInMinuteBeforeCleaningStatement;
+	}
+
+
+	public void setMaxTimeInMinuteBeforeCleaningStatement(int maxTimeInMinuteBeforeCleaningStatement) {
+		this.maxTimeInMinuteBeforeCleaningStatement = maxTimeInMinuteBeforeCleaningStatement;
 	}
 	
 }

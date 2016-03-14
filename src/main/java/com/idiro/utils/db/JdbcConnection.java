@@ -62,13 +62,13 @@ public class JdbcConnection {
 	}
 	private int maxTimeInMinuteBeforeCleaningStatement = 60;
 	
-	private Logger logger = Logger.getLogger(getClass());
+	private static Logger logger = Logger.getLogger(JdbcConnection.class);
 	
 	protected JdbcDetails connectionDetails;
 	
-	private Connection connection;
+	protected Connection connection;
 	
-	private BasicStatement bs;
+	protected BasicStatement bs;
 	
 	private int maxDefaultRowNb = 100000;
 	private List<StatementObj> statementCach = new LinkedList<StatementObj>();
@@ -412,6 +412,10 @@ public class JdbcConnection {
 	 */
 	public void commit() throws SQLException {
 		connection.commit();
+	}
+
+	public Connection getConnection() {
+		return connection;
 	}
 
 	/**

@@ -61,6 +61,9 @@ public class JdbcConnection {
 		}
 	}
 	private int maxTimeInMinuteBeforeCleaningStatement = 60;
+	private int maxNumberOfStatementOpen = 5;
+	private int numberOfQueryRunningInParallel = 0;
+	private int maxNumberOfQueryRunningInParallel = 3;
 	
 	private static Logger logger = Logger.getLogger(JdbcConnection.class);
 	
@@ -125,10 +128,91 @@ public class JdbcConnection {
 	}
 
 
+	
+	private final void waitForQuery(){
+		while(numberOfQueryRunningInParallel >= maxNumberOfQueryRunningInParallel){
+			try {
+				Thread.sleep(200);
+			} catch (InterruptedException e) {
+			}
+		}
+	}
+	
+	private final void requestTicketForQuery(){
+		waitForQuery();
+		++numberOfQueryRunningInParallel;
+	}
+	
+	private final void releaseTicket(){
+		--numberOfQueryRunningInParallel;
+	}
+	
 	public void closeConnection() throws SQLException{
 		removeAllStatement();
 		connection.close();
 	}
+	
+	public Statement getNewStatement() throws SQLException{
+		return connection.createStatement();
+	}
+
+	public void cleanOldStatement(){
+		Iterator<StatementObj> itStat = statementCach.iterator();
+		while(itStat.hasNext()){
+			StatementObj cur = itStat.next();
+			Statement curSt = cur.stat;
+			ResultSet rs = cur.rs;
+			boolean toClose = false;
+			try{
+				toClose = rs == null || rs.isClosed();
+			}catch(Exception e){
+				//Remove the statement after 30 minutes
+				if(System.currentTimeMillis() - cur.timestamp > 1000*60*maxTimeInMinuteBeforeCleaningStatement){
+					toClose = true;
+				}
+			}
+			if(toClose){
+				closeStatement(curSt,rs);
+				itStat.remove();
+			}
+		}
+	}
+	
+	private void closeStatement(Statement st, ResultSet rs){
+		try{
+			rs.close();
+		}catch(Exception e){}
+		try{
+			st.close();
+		}catch(Exception e){}
+		
+	}
+	
+	public void addNewStatement(Statement stat, ResultSet rs) throws SQLException{
+		cleanOldStatement();
+		statementCach.add(new StatementObj(stat, rs));
+		while(maxNumberOfStatementOpen < statementCach.size()){
+			closeStatement(statementCach.get(0).stat,statementCach.get(0).rs);
+			statementCach.remove(0);
+		}
+	}
+	
+	public void removeAllStatement(){
+		Iterator<StatementObj> itStat = statementCach.iterator();
+		while(itStat.hasNext()){
+			StatementObj cur = itStat.next();
+			Statement curSt = cur.stat;
+			ResultSet rs = cur.rs;
+			try{
+				rs.close();
+			}catch(Exception e){}
+			try{
+				curSt.close();
+			}catch(Exception e){}
+			itStat.remove();
+		}
+	}
+
 
 	/**
 	 * Returns a list of tables that matches the supplied pattern.
@@ -171,65 +255,14 @@ public class JdbcConnection {
 	 */
 	public final List<String> listFeaturesFrom(String tableName) throws SQLException{
 		List<String> features = new LinkedList<String>();
-		Statement statement = getNewStatement();
-		ResultSet rs = statement
-				.executeQuery(showStmt(bs.showFeaturesFrom(tableName)));
+		ResultSet rs = executeQuery(bs.showFeaturesFrom(tableName));
 		String name;
 		while (rs.next()) {
-		    name = rs.getString(1).trim();
+			name = rs.getString(1).trim();
 			features.add(name);
 		}
 		rs.close();
-		statement.close();
-		
 		return features;
-	}
-	
-	public Statement getNewStatement() throws SQLException{
-		return connection.createStatement();
-	}
-
-	public void cleanOldStatement() throws SQLException{
-		Iterator<StatementObj> itStat = statementCach.iterator();
-		while(itStat.hasNext()){
-			StatementObj cur = itStat.next();
-			Statement curSt = cur.stat;
-			ResultSet rs = cur.rs;
-			boolean toClose = false;
-			try{
-				toClose = rs == null || rs.isClosed();
-			}catch(Exception e){
-				//Remove the statement after 30 minutes
-				if(System.currentTimeMillis() - cur.timestamp > 1000*60*maxTimeInMinuteBeforeCleaningStatement){
-					toClose = true;
-				}
-			}
-			if(toClose){
-				curSt.close();
-				itStat.remove();
-			}
-		}
-	}
-	
-	public void addNewStatement(Statement stat, ResultSet rs) throws SQLException{
-		cleanOldStatement();
-		statementCach.add(new StatementObj(stat, rs));
-	}
-	
-	public void removeAllStatement(){
-		Iterator<StatementObj> itStat = statementCach.iterator();
-		while(itStat.hasNext()){
-			StatementObj cur = itStat.next();
-			Statement curSt = cur.stat;
-			ResultSet rs = cur.rs;
-			try{
-				rs.close();
-			}catch(Exception e){}
-			try{
-				curSt.close();
-			}catch(Exception e){}
-			itStat.remove();
-		}
 	}
 	
 	/**
@@ -243,10 +276,7 @@ public class JdbcConnection {
 	 */
 	public boolean createExternalTable(String tableName,
 			Map<String, String> features, String[] options) throws SQLException {
-		Statement statement = getNewStatement();
-		boolean ans = statement.execute(showStmt(bs.createExternalTable(tableName, features, options)));
-		statement.close();
-		return ans;
+		return execute(bs.createExternalTable(tableName, features, options));
 	}
 
 	/**
@@ -260,10 +290,7 @@ public class JdbcConnection {
 	 */
 	public boolean createTable(String tableName,
 			Map<String, String> features, String[] options) throws SQLException {
-		Statement statement = getNewStatement();
-		boolean ans = statement.execute(showStmt(bs.createTable(tableName, features, options)));
-		statement.close();
-		return ans;
+		return execute(bs.createTable(tableName, features, options));
 	}
 
 	/**
@@ -274,10 +301,7 @@ public class JdbcConnection {
 	 * @see com.idiro.utils.db.BasicStatement#deleteTable(java.lang.String)
 	 */
 	public boolean deleteTable(String tableName) throws SQLException {
-		Statement statement = getNewStatement();
-		boolean ans = statement.execute(showStmt(bs.deleteTable(tableName)));
-		statement.close();
-		return ans;
+		return execute(bs.deleteTable(tableName));
 	}
 
 	/**
@@ -292,11 +316,8 @@ public class JdbcConnection {
 	 */
 	public boolean exportTableToFile(String tableNameFrom,
 			Map<String, String> features, String[] options) throws SQLException {
-		Statement statement = getNewStatement();
-		boolean ans = statement.execute(showStmt(bs.exportTableToFile(tableNameFrom, features,
-				options)));
-		statement.close();
-		return ans;
+		return execute(bs.exportTableToFile(tableNameFrom, features,
+				options));
 	}
 
 	/**
@@ -306,10 +327,7 @@ public class JdbcConnection {
 	 * @see com.idiro.utils.db.BasicStatement#showAllTables()
 	 */
 	public ResultSet showAllTables() throws SQLException {
-		Statement statement = getNewStatement();
-		ResultSet rs = statement.executeQuery(showStmt(bs.showAllTables()));
-		addNewStatement(statement, rs);
-		return rs;
+		return executeQuery(bs.showAllTables());
 	}
 
 	/**
@@ -341,10 +359,18 @@ public class JdbcConnection {
 	 * @see java.sql.Statement#executeQuery(java.lang.String)
 	 */
 	public ResultSet executeQuery(String arg0, int maxRecord) throws SQLException {
-		Statement statement = getNewStatement();
-		statement.setMaxRows(maxRecord);
-		ResultSet ans = statement.executeQuery(showStmt(arg0));
-		addNewStatement(statement, ans);
+		requestTicketForQuery();
+		ResultSet ans = null;
+		try{
+			Statement statement = getNewStatement();
+			statement.setMaxRows(maxRecord);
+			ans = statement.executeQuery(showStmt(arg0));
+			addNewStatement(statement, ans);
+		}catch(SQLException e){
+			releaseTicket();
+			throw e;
+		}
+		releaseTicket();
 		return ans;
 	}
 	
@@ -355,9 +381,17 @@ public class JdbcConnection {
 	 * @see java.sql.Statement#execute(java.lang.String)
 	 */
 	public boolean execute(String arg0) throws SQLException {
-		Statement statement = getNewStatement();
-		boolean ans = statement.execute(showStmt(arg0));
-		statement.close();
+		boolean ans;
+		requestTicketForQuery();
+		try{
+			Statement statement = getNewStatement();
+			ans = statement.execute(showStmt(arg0));
+			statement.close();
+		}catch(SQLException e){
+			releaseTicket();
+			throw e;
+		}
+		releaseTicket();
 		return ans;
 	}
 	
@@ -368,9 +402,16 @@ public class JdbcConnection {
 	 * @see java.sql.Statement#executeUpdate(java.lang.String)
 	 */
 	public int executeUpdate(String arg0) throws SQLException {
-		Statement statement = getNewStatement();
-		int ans = statement.executeUpdate(showStmt(arg0));
-		statement.close();
+		int ans = 0;
+		requestTicketForQuery();
+		try{
+			Statement statement = getNewStatement();
+			ans = statement.executeUpdate(showStmt(arg0));
+			statement.close();
+		}catch(SQLException e){
+			releaseTicket();
+			throw e;
+		}
 		return ans;
 	}
 	
@@ -447,6 +488,38 @@ public class JdbcConnection {
 
 	public void setMaxTimeInMinuteBeforeCleaningStatement(int maxTimeInMinuteBeforeCleaningStatement) {
 		this.maxTimeInMinuteBeforeCleaningStatement = maxTimeInMinuteBeforeCleaningStatement;
+	}
+
+
+	/**
+	 * @return the maxNumberOfStatementOpen
+	 */
+	public int getMaxNumberOfStatementOpen() {
+		return maxNumberOfStatementOpen;
+	}
+
+
+	/**
+	 * @param maxNumberOfStatementOpen the maxNumberOfStatementOpen to set
+	 */
+	public void setMaxNumberOfStatementOpen(int maxNumberOfStatementOpen) {
+		this.maxNumberOfStatementOpen = maxNumberOfStatementOpen;
+	}
+
+
+	/**
+	 * @return the maxNumberOfQueryRunningInParallel
+	 */
+	public int getMaxNumberOfQueryRunningInParallel() {
+		return maxNumberOfQueryRunningInParallel;
+	}
+
+
+	/**
+	 * @param maxNumberOfQueryRunningInParallel the maxNumberOfQueryRunningInParallel to set
+	 */
+	public void setMaxNumberOfQueryRunningInParallel(int maxNumberOfQueryRunningInParallel) {
+		this.maxNumberOfQueryRunningInParallel = maxNumberOfQueryRunningInParallel;
 	}
 	
 }

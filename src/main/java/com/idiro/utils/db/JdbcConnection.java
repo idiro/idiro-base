@@ -149,6 +149,7 @@ public class JdbcConnection {
 	
 	public void closeConnection() throws SQLException{
 		removeAllStatement();
+		numberOfQueryRunningInParallel = 0;
 		connection.close();
 	}
 	
@@ -174,6 +175,22 @@ public class JdbcConnection {
 			if(toClose){
 				closeStatement(curSt,rs);
 				itStat.remove();
+			}
+		}
+	}
+	
+	protected void cleanOldStatement(ResultSet resultSet){
+		if(resultSet != null){
+			Iterator<StatementObj> itStat = statementCach.iterator();
+			while(itStat.hasNext()){
+				StatementObj cur = itStat.next();
+				Statement curSt = cur.stat;
+				ResultSet rs = cur.rs;
+				if(resultSet.equals(rs)){
+					closeStatement(curSt,rs);
+					itStat.remove();
+					break;
+				}
 			}
 		}
 	}
